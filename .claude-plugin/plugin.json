@@ -1,0 +1,5 @@
+{
+  "name": "wp-checkpoint",
+  "description": "Study a WordPress project and write a reusable update-testing runbook (test-plan-create), then execute it after an update and produce an actionable, evidence-based Markdown+DOCX issue report with screenshots and log excerpts (test). Read-only discovery, explicit user invocation only, no auto-invocation between the two skills.",
+  "version": "1.1.5"
+}

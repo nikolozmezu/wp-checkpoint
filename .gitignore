@@ -1,0 +1,33 @@
+# WordPress project files (this repo is the plugin only, never a WordPress install)
+wp-config.php
+wp-content/
+wp-admin/
+wp-includes/
+*.sql
+*.sqlite
+
+# Credentials and secrets
+.env
+.env.*
+*.pem
+*.key
+
+# Generated plugin output (created when the skills run against a WordPress project)
+testing-after-update.md
+report-*/
+wp-update-report.md
+wp-update-report.docx
+log-excerpt.txt
+screenshots/
+
+# Logs
+*.log
+
+# Archives and temporary files
+*.zip
+*.tar
+*.tar.gz
+*.tmp
+*.temp
+Thumbs.db
+.DS_Store
