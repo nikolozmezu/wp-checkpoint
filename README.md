@@ -20,7 +20,7 @@ claude plugin marketplace add nikolozmezu/wp-checkpoint
 claude plugin install wp-checkpoint@wp-checkpoint
 ```
 
-Both commands also accept the full repository URL in place of `nikolozmezu/wp-checkpoint` (e.g. `https://github.com/nikolozmezu/wp-checkpoint.git`).
+In either form, interactive or shell, you can replace `nikolozmezu/wp-checkpoint` in the `marketplace add` command with the full repository URL (e.g. `https://github.com/nikolozmezu/wp-checkpoint.git`). The following `plugin install` argument stays `wp-checkpoint@wp-checkpoint` either way.
 
 ## Prerequisites
 
@@ -38,7 +38,7 @@ WP Checkpoint has two skills, invoked explicitly. Neither one ever invokes the o
 /wp-checkpoint:test-plan-create
 ```
 
-This only reads the project and writes `testing-after-update.md`. It never touches content, settings, code, or the live site.
+This only reads the project and writes `testing-after-update.md`. It never touches content, settings, or code, and it never performs functional tests or makes changes on the live site — it may passively view live pages as a read-only reference.
 
 **2. Apply your update separately**, outside Claude Code, the way you normally would.
 
@@ -53,6 +53,6 @@ This executes the existing plan and writes the report. It takes an optional scop
 ## What gets generated
 
 - `testing-after-update.md` — the reusable test plan, written at your project root (or an existing or explicitly given location). This file is documentation only; it never contains test results.
-- `report-<YYYY-MM-DD>[-N]/` — a dated, self-contained folder created by each test run, holding `wp-update-report.md` (and `wp-update-report.docx` when DOCX generation is available), a `screenshots/` folder, and a `log-excerpt.txt`. It lists a PASS / FAIL / BLOCKED / NOT APPLICABLE result per test case, plus any issues found, for a human to review and act on.
+- `report-<YYYY-MM-DD>[-N]/` — a dated, self-contained folder created by each test run, holding `wp-update-report.md` (and `wp-update-report.docx` when DOCX generation is available), a `screenshots/` folder, and a `log-excerpt.txt`. It lists a NOT RUN / PASS / FAIL / BLOCKED / NOT APPLICABLE result per test case, plus any issues found, for a human to review and act on.
 
-WP Checkpoint does not modify WordPress and does not fix anything it finds — it plans, tests, and reports.
+The testing skill may perform documented, reversible local test actions (such as submitting a disposable test form entry) and cleans them up afterward. It does not apply software updates, and it does not fix any defect it finds — that stays a manual step for you.
