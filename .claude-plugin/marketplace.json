@@ -3,12 +3,12 @@
   "owner": {
     "name": "Nikoloz Mezurnishvili"
   },
-  "description": "Marketplace for the WP Checkpoint Claude Code plugin: plan a WordPress update-testing runbook, then execute it and produce an evidence-based report.",
+  "description": "WP Checkpoint: WordPress plans, deterministic testing, safe continuation, before/after visual review and concise reports.",
   "plugins": [
     {
       "name": "wp-checkpoint",
       "source": ".",
-      "description": "Study a WordPress project and write a reusable update-testing runbook, then execute it after an update and produce an actionable, evidence-based Markdown+DOCX issue report."
+      "description": "Create or refresh a WordPress test plan, run or resume checks, retest fixes, compare screenshots and diagnose the loaded plugin version."
     }
   ]
 }

@@ -1,113 +1,97 @@
 # Shared Conventions — WordPress Update Testing
 
-This file defines the vocabulary that `/wp-checkpoint:test-plan-create` and `/wp-checkpoint:test` both use. `/wp-checkpoint:test-plan-create` assigns these labels when it writes `testing-after-update.md`; `/wp-checkpoint:test` reads and reports using the exact same labels. The two skills live in separate folders, each with its own copy of this file — **keep both copies identical**. If you ever have reason to change one (while running either skill, or when a user asks you to improve the skills themselves), change the other the same way.
+The two skills use this contract. Keep the copies in both `references/` directories identical. When maintaining the plugin, synchronize the vocabulary in the plan template's Section G; generated plans must remain readable without this plugin. Do not edit plugin instructions while executing a project test.
 
-This same content is also inlined directly into Section G of every `testing-after-update.md` that `/wp-checkpoint:test-plan-create` writes, because that document lives in the project root (not inside either skill's folder) and must stay readable on its own. If you change this file, update `assets/testing-after-update-template.md`'s Section G to match, and treat already-generated project documents' Section G as needing the same refresh next time `/wp-checkpoint:test-plan-create` runs on them.
+## Test IDs and lifecycle
 
-## Test IDs
+Use `<AREA>-<NNN>`: an uppercase area mnemonic and a zero-padded sequence starting at `001`. Use real feature names in the area, for example `HOME-001`, `FORM-CONTACT-001`, `SINGLE-CASESTUDY-001`, `ADM-EDITOR-001`. Useful areas include HOME, LAND, NAV, SEARCH, FILT, MEDIA, RESP, AJAX, REST, CRON, CACHE and I18N; use only those the project needs.
 
-Format: `<AREA>-<NNN>` — an uppercase area mnemonic, a hyphen, then a zero-padded 3-digit sequence number starting at `001` within that area (e.g. `HOME-001`, `SEARCH-003`, `ADMIN-012`). For a specific custom post type, taxonomy, or form, use its real slug/name as (part of) the area code instead of a generic word, so the ID stays meaningful on its own (e.g. `CASESTUDY-001`, not `CPT-001`).
+IDs are permanent: never renumber or reuse them for unrelated checks. Each card has a separate **Lifecycle: ACTIVE | REMOVED** field. Retain removed cards and matrix rows, with removal date and reason. Their plan Status remains NOT RUN. Historical REMOVED rows are unselected in execution, Status NOT RUN, Reason naming removal; they never count as active coverage. A request to exercise a removed feature is a plan discrepancy to resolve, not permission to silently resurrect its old test. Older plans without a lifecycle field default to ACTIVE unless explicitly marked removed.
 
-Suggested default area codes — adapt to what this project actually has, don't force-fit every code onto a project that doesn't need it:
+## Priorities and update tags
 
-| Area code | Covers |
+- **P0** — essential availability, primary journeys and critical editorial functionality.
+- **P1** — important supporting functionality.
+- **P2** — secondary behavior and visual details.
+
+Priority measures the feature's importance, not the likelihood that an update affects it. Record it identically in the impact matrix and card.
+
+Tags: `core` (WordPress), `plugin:<slug>` (actual plugin slug), `theme` (active parent/child theme), `builder` (the actual page builder), `php` (PHP runtime), `env` (server, database, cache/CDN or other environment changes). Record identical tags in the matrix and card, including php/env on relevant execution paths.
+
+Schema 3 cards also record **Execution layers**, using comma-separated `php`, `browser`, `infrastructure`, `external`, `static`, `unknown`. These describe what the tested behavior actually executes or depends on, not the name of its area. `php` requires the `php` update tag; `infrastructure` requires `env`. A server-rendered page or server-handled form can involve both php and browser; do not label it browser-only because it is viewed in a browser. `static` applies only to a check genuinely confined to static assets/files. `unknown` requires a specific explanation in Known limitations / dependencies. Do not invent a layer or add a meaningless tag solely to satisfy validation.
+
+Each active schema 3 card also records **Implementation evidence** (actual source/config/request reference, or `Unresolved: <specific missing evidence>`), **Fixture setup** (how this card obtains its required state) and **State after cleanup** (what is left). These are reviewable claims, not proof by themselves. A structural validator cannot establish their truth; source-backed semantic review is separate.
+
+## Dependencies and coverage selection
+
+**Depends on** lists prerequisite test IDs or fixtures established by those tests. **Affects** lists downstream test IDs whose behavior this feature can change. Both fields contain actual IDs, or `None`; keep matrix and card consistent. An Affects edge does not claim that the target creates a prerequisite fixture. For legacy plans with ambiguous combined dependencies, inspect the documented actions, retain conservative coverage and report anything still unresolved.
+
+A dependency establishes ordering, not persistence of another card's temporary data. Default to a self-contained Fixture setup. If a fixture is shared, document its creator, consumers, lifetime and cleanup owner; it must still exist after the producing card's actual steps/cleanup. A completed create/delete test cannot supply its deleted object to a later check. Do not silently postpone cleanup or recreate a fixture through an unsafe external action.
+
+Select deterministically, keeping every historical plan ID in the result matrix:
+
+1. Exclude REMOVED IDs and explicit user exclusions from execution first. Set Selected: No, Status: NOT RUN and a specific reason. An explicit user exclusion can narrow smoke coverage; disclose that limitation.
+2. **full**: select all remaining ACTIVE IDs. Use `Yes/full` (or `Yes/smoke` for the essential smoke subset).
+3. **smoke**: select the active smoke subset and its transitive prerequisites. Use `Yes/smoke` and `Yes/smoke-dependency`.
+4. **targeted**: start with IDs matching the actual update tags. Follow downstream Affects edges and reverse Depends on edges transitively; add prerequisites of the resulting set. Union this with smoke and smoke prerequisites. Use `Yes/targeted-tagged`, `Yes/targeted-dependency`, `Yes/smoke` or `Yes/smoke-dependency`, choosing the first direct reason that applies. Do not expand downstream solely from smoke IDs and accidentally turn every targeted run into full.
+5. An explicit exclusion suppresses execution, not known impact: downstream impact traversal may pass through an excluded active node. Filter it from the final selected set without erasing affected consumers. Traverse each ID once. Missing references and circular fixture requirements are gaps to record, not invented prerequisites. If an excluded, removed or blocked prerequisite prevents a selected check, that check is BLOCKED unless an already-established equivalent fixture exists.
+
+Use the installed `scripts/select_tests.py` helper to compute this set/order/reasons when available. An explicit limited list or fresh retest selects the requested active IDs plus prerequisites; it does not add unrelated smoke/downstream coverage. Use existing Yes/targeted-tagged and Yes/targeted-dependency labels, with the explicit/retest origin stated in Reason. Record the resulting coverage limits.
+
+For PHP/runtime updates, seed selection with every active card whose Execution layers includes php or unknown, as well as php-tagged cards, before applying dependency/impact closure. For environment changes, include the affected infrastructure/execution layers; if the affected layer is unknown, use conservative broad coverage. Missing or incorrect tags in an old plan must not silently narrow runtime testing. When layers are absent, inspect documented behavior; include unresolved server/runtime cases conservatively and record that the plan needs refresh. Do not infer safe exclusion from an arbitrary ID prefix.
+
+With unknown update impact, propose full coverage; never guess tags. PHP/runtime/environment changes need smoke plus relevant runtime checks, including AJAX/REST, cron, cache and admin saves. Major or simultaneous updates need broader related coverage. Honor a user's explicit narrower scope and state the resulting limits. Targeted without enough update context needs clarification before selecting its additional tests.
+
+## Result statuses and decisions
+
+Exactly five statuses apply to execution; every card in a generated or refreshed plan stays **NOT RUN**.
+
+| Situation | Status |
 | :-- | :-- |
-| `HOME` | Homepage |
-| `LAND` | Other important landing pages |
-| `SINGLE-<posttype>` | Single/detail template for a post type |
-| `ARCH-<posttype-or-taxonomy>` | Archive / taxonomy listing pages |
-| `SEARCH` | Search results |
-| `NAV` | Header, footer, menus, mobile nav, sticky elements |
-| `FILT` | Filters, pagination, load-more, URL/state preservation |
-| `FORM-<name>` | A specific form |
-| `MEDIA` | Galleries, players, embeds, uploads |
-| `RESP` | Responsive layout / breakpoints / visual states |
-| `ADM-<area>` | Admin / editorial workflow |
-| `AJAX` / `REST` | AJAX actions and REST endpoints |
-| `CRON` | Scheduled jobs, queues, imports |
-| `CACHE` | Page/object/transient/CDN caching and invalidation |
-| `I18N` | Language / locale behavior |
-| `SMOKE` | Cross-cutting essential checks (see Priorities below) |
+| Unselected, removed, or never reached; run ends before a required observation deadline | NOT RUN |
+| Executed completely and directly observed all documented expected outcomes | PASS |
+| Valid execution contradicted an established expectation, including a missed deadline with prerequisites met | FAIL |
+| Applicable check lacks access, tools, isolation, fixture, a required precondition or settled acceptance criteria | BLOCKED |
+| Confirmed non-applicability to this project/environment | NOT APPLICABLE |
 
-Once an ID is assigned, it is permanent: never reuse it for an unrelated check, and never renumber existing IDs just to keep a sequence tidy. If a feature a test ID covers is removed from the project, mark that test case `REMOVED` (with the date and reason) instead of deleting it — this keeps history traceable and keeps the ID from ever being silently reassigned to something else.
+Missing browser access is BLOCKED, not NOT APPLICABLE. A production-only cache that this local stack is confirmed incapable of exhibiting is NOT APPLICABLE, with the production coverage gap stated; uncertainty about the cache prerequisite is BLOCKED. A feature explicitly confirmed absent by design can be NOT APPLICABLE; merely choosing not to test it this run is NOT RUN with Selected: No. Unknown intent is BLOCKED, never an inferred exclusion.
 
-## Priorities
+Record a specific reason for BLOCKED, NOT RUN, NOT APPLICABLE and all unselected rows. Static source inspection cannot establish an interaction, screenshot comparison, upload or background-job PASS.
 
-- **P0** — Essential availability, primary user journeys, and critical editorial functionality.
-- **P1** — Important supporting functionality.
-- **P2** — Secondary behavior and visual details.
+**Attempts:** keep every valid attempt with its observation and evidence. If any valid attempt fails, the aggregate test status is FAIL even when a retry passes; differing executed outcomes create an Intermittent finding. Do not count attempts as separate test IDs. Without a failure, PASS requires a complete observed success; partial progress with a named unmet prerequisite is BLOCKED, and an interrupted run without that prerequisite failure is NOT RUN. An invalid setup is a recorded prerequisite problem, not evidence of a product failure.
 
-Priority is a property of the *feature* (how much it matters if it's broken), independent of whether a given update is likely to touch it.
+**Continuation:** Only an explicitly identified OPEN execution ledger can resume after fresh identity/context/evidence and cleanup checks. Preserve completed observations with their original dates; never blindly repeat an interrupted action. Finalized runs/checkpoints are immutable. Retesting after fixes creates a new run; the old failure remains historical evidence. OPEN/COMPLETE ledger lifecycle is operational bookkeeping, not another result status.
 
-## Result statuses
+**Completeness:** Complete means every selected ID reached PASS, FAIL, BLOCKED or NOT APPLICABLE. Incomplete means a selected ID is still NOT RUN. Complete does not mean all passed. Present both full-plan counts and selected-scope counts, derived from the same matrix; explicitly name blocked coverage and pending cleanup. Unselected IDs do not reduce run completeness and never count as passes.
 
-Exactly five values, used consistently by both skills:
+## Evidence-source labels (discovery)
 
-- **NOT RUN** — Not yet executed in the current run. Every test case in a freshly created or freshly updated `testing-after-update.md` starts here — the document is a plan, not a report.
-- **PASS** — Actually executed, and the observed result matched the documented expected result. Never assign PASS without both execution and direct observation of the outcome.
-- **FAIL** — Actually executed, and the observed result did not match the documented expected result.
-- **BLOCKED** — The check applies to this project and environment but could not be completed this run (missing access, missing tool, unmet precondition, unavailable isolation, etc.). Always record the specific reason.
-- **NOT APPLICABLE** — The check does not apply to this *project* or *environment* — the feature it covers doesn't exist here, or this specific environment can't exhibit the behavior at all (e.g. a cache layer requiring a server module this environment doesn't run). Always state why. **This is not the same as being outside this run's selected scope** — a test ID simply left out of a smoke-only or targeted run's selected scope is **NOT RUN** with its matrix row's Selected column set to No and the specific scope reason stated, never NOT APPLICABLE. Reserve NOT APPLICABLE for a genuine, project/environment-level non-applicability, explicitly confirmed or user-excluded — not for "wasn't picked for this run."
+Use the same labels in feature inventory and each card's Expected-result basis:
 
-A NOT RUN or BLOCKED check is never counted as a pass, in any summary, count, or narrative conclusion.
+- **Observed during discovery** — passively viewed; confirms observed appearance, not unexercised interactions.
+- **Derived from source or stored configuration** — inferred from actual code/configuration without runtime verification.
+- **Requires clarification or runtime confirmation** — correct behavior cannot yet be established; name the uncertainty.
 
-## Evidence-source labels (discovery time)
+## Finding severity
 
-Used in Section C of `testing-after-update.md` to mark how each piece of inventory was established, and reused in Section F as each test case's **Expected-result basis** (the same three labels, applied to one expected result instead of a whole feature row):
+- **Critical** — essential availability or a P0 journey broken without workaround, data loss/corruption, or clear security exposure.
+- **High** — a normal user/editor hits a P0/P1 failure without a reasonable workaround.
+- **Medium** — limited impact, a workaround, or an affected P2 behavior.
+- **Low** — cosmetic/edge-case defect with negligible practical impact.
 
-- **Observed during discovery** — Directly viewed (page, admin screen, rendered behavior) during discovery. This is passive viewing, not a functional test — it confirms a page renders, not that its interactions work.
-- **Derived from source or stored configuration** — Inferred by reading theme/plugin code, database option values, or configuration, without viewing it rendered.
-- **Requires clarification or runtime confirmation** — Could not be determined with confidence from available access; needs an actual test run later, or needs the user to clarify.
+Give one sentence explaining impact. Do not mechanically derive severity from priority: a homepage icon can be Low, and a secondary form corrupting data can be High.
 
-## Finding severity (execution time)
+## Issue classification and IDs
 
-Used in `/wp-checkpoint:test` reports to rate how bad an observed failure is (distinct from the feature's priority, which rates how much the feature matters):
+- **Confirmed regression** — observed failure with comparable before evidence establishing that this behavior worked. A before screenshot establishes appearance, not prior form submission or scheduled-job success. A version difference alone is insufficient.
+- **Known issue** — the failure matches a documented pre-existing issue or a comparable failed baseline check.
+- **New issue of uncertain origin** — observed failure with no sufficient before evidence and no matching known issue.
+- **Intermittent** — valid executed attempts produced differing outcomes; preserve the failing attempt and aggregate FAIL. Report before/after context separately where available.
 
-- **Critical** — A P0 journey or essential availability is broken with no workaround, data is lost or corrupted, or there's a clear security exposure.
-- **High** — A P0 or P1 feature fails in a way a normal user or editor would hit, with no reasonable workaround.
-- **Medium** — A defect that's limited in scope, has a workaround, or affects a P2 behavior.
-- **Low** — Cosmetic or edge-case defect with negligible practical impact.
+Use `ISSUE-<NNN>` starting at 001 within each report. Issue IDs are local to a run; test IDs are persistent. Every issue links its test ID(s); one issue may affect several checks. Cross-run issue matching uses behavior, location and test IDs, never equal ISSUE numbers alone.
 
-State the one-line reasoning behind the severity you assign — don't derive it mechanically from priority alone. A P0 feature can still fail in a merely Low-severity way (e.g. a misaligned icon on the homepage), and a P2 feature can occasionally fail at High severity (e.g. a secondary form that corrupts data on submission).
+## Cause confidence and responsible role
 
-## Issue classification (execution time)
+**Confirmed** means specific evidence establishes the cause (a traced code path/configuration or a permitted controlled test); cite it. **Suspected** means evidence supports a theory without proving it. **Unknown** means no reliable theory; provide concrete diagnostic next steps. Temporal coincidence with an update, especially several simultaneous updates, does not establish causation. Never apply a fix or an undocumented configuration change just to prove a cause.
 
-- **Confirmed regression** — FAILed, and there's specific before/after evidence (a prior passing run, a dated screenshot, documented prior behavior) showing it worked before this update.
-- **Known issue** — FAILed in a way that matches an issue already recorded as pre-existing in `testing-after-update.md` (Section C or E).
-- **New issue of uncertain origin** — FAILed, with no before/after evidence either way, and it doesn't match a recorded known issue. Do not call this a regression without that evidence.
-- **Intermittent** — Produced different results across repeated attempts in the same run. Record every outcome, including the failing one — never silently keep only the passing retry.
-
-## Update-type tags
-
-Tag every test ID in Section D's matrix with the update type(s) it's sensitive to, so a targeted `/wp-checkpoint:test` run can select, say, "every ID tagged `plugin:woocommerce`" without re-deriving the mapping each time:
-
-- `core` — WordPress core
-- `plugin:<slug>` — a specific plugin (use its real slug)
-- `theme` — the active theme or child theme
-- `builder` — the active page builder, if any (Elementor, Divi, Beaver Builder, Bricks, WPBakery, etc. — name the one actually in use)
-- `php` — PHP version
-- `env` — hosting/environment (web server config, object cache, CDN, database engine/version)
-
-## Issue IDs (execution time)
-
-Format: `ISSUE-<NNN>` — zero-padded, sequential starting at `001` within a single `/wp-checkpoint:test` report run. Unlike a test ID, an issue ID is scoped to its own report run only — it is not a persistent, project-wide identifier, and numbering restarts on the next run. Every issue must also name the test ID(s) it was found through (a single issue can span more than one test ID; a single test ID can surface more than one issue).
-
-## Cause classification (execution time)
-
-Rates how confidently a finding's root cause is known — a separate axis from severity (how bad) and issue classification (regression vs. known vs. new vs. intermittent):
-
-- **Confirmed** — the root cause was directly verified: read in the actual code/configuration, or reproduced via a controlled change, with the specific file/line, setting, or log entry cited as evidence.
-- **Suspected** — available evidence points strongly to a likely cause but it wasn't independently verified (e.g. a timing correlation without a controlled test, or a plausible code path that wasn't traced line-by-line).
-- **Unknown** — no reliable cause theory exists yet. Say what was ruled out, if anything, and name concrete diagnostic next steps rather than guessing a fix.
-
-Never mark a cause **Confirmed** without naming the specific evidence that establishes it. Never let a guess be written as if it were Confirmed.
-
-## Role required for remediation (execution time)
-
-Names who is actually positioned to act on a finding:
-
-- **WordPress Administrator** — fixable from wp-admin alone (a setting, content, a plugin's own options page).
-- **Developer** — requires a theme, plugin, or other code change.
-- **Hosting Administrator** — requires server/infrastructure-level access (PHP version, web server configuration, DNS, SSL certificates, file permissions outside WordPress's own reach).
-
-Name more than one role when remediation spans layers (e.g. "Developer, then Hosting Administrator to deploy").
+Roles: **WordPress Administrator** for wp-admin changes, **Developer** for code, **Hosting Administrator** for infrastructure. Name multiple roles when needed. The technical report retains these labels, IDs and exact references; the user-facing report explains the problem, impact and next step in the user's language without dumping internal details.

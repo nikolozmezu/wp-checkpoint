@@ -1,0 +1,20 @@
+{
+  "name": "wp-checkpoint-runtime-evals",
+  "private": true,
+  "type": "module",
+  "version": "1.0.0",
+  "description": "Disposable real WordPress browser regression fixtures for WP Checkpoint",
+  "scripts": {
+    "test": "node run.mjs",
+    "setup": "node setup.mjs",
+    "serve": "node serve.mjs"
+  },
+  "engines": {
+    "node": ">=24.18.0",
+    "npm": ">=11.16.0"
+  },
+  "devDependencies": {
+    "@wp-playground/cli": "3.1.60",
+    "playwright": "1.64.1"
+  }
+}

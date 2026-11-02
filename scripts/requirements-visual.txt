@@ -1,0 +1,2 @@
+# Optional dependency for deterministic screenshot analysis and offline review.
+Pillow>=10.0

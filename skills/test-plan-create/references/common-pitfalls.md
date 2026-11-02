@@ -1,6 +1,6 @@
 # Common Pitfalls — Read Before Finalizing Section C/D/F
 
-These are specific, recurring failure patterns found in real discovery runs. Each one looks like a reasonable shortcut in the moment and produces a plausible-sounding document — but the resulting test case is wrong, untestable, or quietly stops meaning what it claims to mean. Check your draft against every item below before you finish Section F.
+These are recurring discovery mistakes that produce untestable or misleading cards. Check the draft against the relevant items before finalizing Section F. Result labels below describe a future execution verdict; this planning skill still leaves every card at NOT RUN. The status and lifecycle definitions in `references/shared-conventions.md` are authoritative.
 
 ## 1. Absence of observed use is not evidence a capability is unneeded
 
@@ -14,7 +14,7 @@ Some features ship a multi-mode storage or processing system where the newer mod
 
 ## 3. A plugin's own "enabled" setting is not the same as the environment's ability to reproduce it
 
-A caching plugin (or similar environment-dependent feature) showing "enabled" in its own settings does not mean your current environment can actually exhibit the behavior — a plugin-level cache may depend on a server module (e.g. a web-server-level page cache) that a local dev stack doesn't run at all, even though the plugin considers itself configured and active. Verify the actual observable behavior (response headers, timing, before/after content) rather than inferring it from the setting. If the environment genuinely can't reproduce a production-only layer, record that explicitly as a limitation (and the eventual test result as BLOCKED with that reason) rather than either assuming coverage exists or generating a false FAIL.
+A caching plugin (or similar environment-dependent feature) showing "enabled" does not prove this environment can exhibit its behavior: page caching may require a server module absent from a local stack. During discovery inspect configuration and already-available headers; leave runtime verification to testing. If the required layer is confirmed absent from this environment, record the limitation and specify future NOT APPLICABLE with that reason. If applicability is unresolved because access or tools are missing, the future verdict is BLOCKED. Neither a settings toggle nor an unavailable production layer supports PASS or FAIL.
 
 ## 4. Identify a submission's real destination during discovery — before any test case reaches the point of submitting
 
@@ -26,7 +26,9 @@ When a feature's behavior is gated by a configuration flag (a plugin option, a c
 
 ## 6. A test case's fixture must be genuinely producible by the steps you wrote
 
-Before finalizing a card's Test data / Starting point, confirm the dependency or fixture-creation method you're pointing to can actually produce what this specific case needs — not something adjacent to it. A card that says "create the needed record via case X" is broken if case X only produces a partial precursor (e.g. adding an item to a cart is not the same as producing a complete order to view in an order-detail screen). Where no valid, low-risk path to a real fixture exists yet, either find one (an admin screen that can create the record directly and in isolation, bypassing a riskier public-facing flow) or mark that specific portion BLOCKED with the precise missing piece, rather than cross-referencing an inadequate mechanism and calling it done.
+Check the prerequisite's state **after all of its steps and cleanup**, not just at the moment it briefly creates a fixture. A predecessor that deletes its temporary record, clears a session or restores a setting cannot supply that state to the next card. `Depends on` does not preserve data. Default to self-contained Fixture setup that establishes/recreates what this card needs using a verified low-risk path; it must work when the card is selected separately with its prerequisites.
+
+Only share a fixture when the plan names its owner, exact state, consumers and lifetime, defers its cleanup until the last consumer, and assigns cleanup on interruption. Record each card's State after cleanup. A precursor is not a finished fixture: creating a draft does not provide a published page, and initiating a workflow does not provide its completed record. If no safe, valid setup can be established, record the missing prerequisite and future BLOCKED outcome; do not claim the card is ready.
 
 Relatedly: a fixture's status must match what the test's role/environment actually grants. Don't write a draft-status fixture into a check whose Environment/Role is Anonymous — a draft isn't visible to anonymous visitors by definition. Use a published disposable fixture (with cleanup) or change the check to an authenticated preview.
 
@@ -59,8 +61,10 @@ Don't write a generic "check that validation works" step. Read which fields are 
 
 ## 12. A database snapshot shows the state at discovery time, not history
 
-Don't phrase a finding using words like "never" or "ever" for anything before that snapshot — a post that was scheduled and already published, for example, leaves no `future`-status row behind, so "no `future` rows exist now" only means "not observed as of this snapshot," not "this has never happened."
+Don't phrase a finding using words like "never" or "ever" for anything before that snapshot — a post that was scheduled and already published, for example, leaves no `future`-status row behind, so "no `future` rows exist now" only means "not observed as of this snapshot," not "this has never happened." Conversely, a historical log entry is not proof the condition still exists. Keep event time, discovery time and target environment separate; see the discovery checklist's activation/provenance rules.
 
-## 13. Keep a test ID's priority and update-type tags identical in both places you record them
+## 13. Keep matrix and card metadata identical, with explicit dependency direction
 
-A test case's priority and update-type tags are recorded twice — once in the Section D matrix row, once on the Section F card itself. When you change either one for an existing test ID, change both in the same edit. Section D and Section F drifting out of sync on a shared ID is exactly the kind of error Step 5's review must catch.
+A test's lifecycle, priority, update-type tags, `Depends on`, and `Affects` are recorded in both its Section D row and Section F card; update both together. `Depends on` names prerequisite checks or fixtures that must be available first. `Affects` names downstream checks potentially affected by this feature; it does not establish execution order. Downstream impact also follows reverse `Depends on` relationships. Do not hide either relationship in a prose Notes field where selection cannot reliably find it.
+
+Keep IDs permanent. A retired feature has Lifecycle REMOVED with date/reason in its retained row/card, Smoke N, and Status NOT RUN. It stays unselected in reports; it is not a sixth result status. Revisit active dependents instead of silently selecting a retired fixture producer. Record unresolved missing references or cycles as gaps; never invent fixture compatibility merely to make the graph look complete.

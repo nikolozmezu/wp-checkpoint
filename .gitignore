@@ -19,6 +19,12 @@ wp-update-report.md
 wp-update-report.docx
 log-excerpt.txt
 screenshots/
+checkpoint.json
+
+# Python validation cache
+__pycache__/
+*.py[cod]
+.validation-*/
 
 # Logs
 *.log
@@ -31,3 +37,10 @@ screenshots/
 *.temp
 Thumbs.db
 .DS_Store
+
+# Synthetic offline evaluation inputs are part of the plugin's regression suite.
+!evals/**
+
+# Optional real WordPress/browser evaluation dependencies
+evals/runtime/node_modules/
+evals/runtime/.cache/

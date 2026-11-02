@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "before": {
+    "CONTACT-001": "PASS",
+    "CART-001": "PASS",
+    "RESP-001": "PASS",
+    "PHP-001": "PASS",
+    "SEARCH-001": "PASS"
+  },
+  "after": {
+    "CONTACT-001": "FAIL",
+    "CART-001": "FAIL",
+    "RESP-001": "FAIL",
+    "PHP-001": "FAIL",
+    "SEARCH-001": "PASS"
+  },
+  "faults": {
+    "CONTACT-001": "valid submission rejected",
+    "CART-001": "one add incorrectly counts two",
+    "RESP-001": "mobile add button hidden",
+    "PHP-001": "undefined PHP function triggers HTTP500"
+  },
+  "note": "Controller-only truth. Never provide this file or implementation to a blind skill evaluator."
+}

@@ -1,73 +1,153 @@
-# Execution and Evidence — Detail Reference
+# Execution and Evidence
 
-Read this before you start executing checks. It expands on the execution rules in SKILL.md; SKILL.md has the hard boundaries, this file has the operational detail.
+Read before executing checks. The same execution, isolation, and evidence rules apply
+to normal, before, and after modes. `shared-conventions.md` owns status decisions,
+lifecycle, and scope-selection rules; `before-after.md` adds checkpoint mechanics.
 
-## Execution order
+## Capability preflight
 
-1. Establish environment, update context, and prerequisites — confirm the base URL, what was updated (and from/to which versions, where discoverable), the desired scope, and which preconditions from the document's Section E are actually met right now versus BLOCKED.
-2. Pass the public-exposure gate and initialize `wp-update-report.md` (Step 3) — the full result matrix pre-populated from every plan test ID, selected ones marked NOT RUN and ready to be updated, unselected ones marked NOT RUN with Selected: No and the scope reason. This happens before any check runs, not after.
-3. Run essential smoke checks (the P0 "Smoke" subset from Section D) — always, regardless of scope — updating each one's matrix row as it completes.
-4. Execute the selected expanded coverage (full / smoke-only / targeted, per the agreed scope) plus — for a targeted run — the dependencies and cross-feature effects that the document's Section D matrix ties to the updated component. A targeted run is never just the one updated component in isolation; follow its documented dependencies. Keep updating the matrix as you go.
-5. Collect findings and limitations as you go — don't defer evidence-gathering to the end, you'll lose the specifics.
-6. Clean up test changes — delete/restore any disposable test content or temporary state you created, per each test case's Cleanup field. If a cleanup step can't be completed, don't silently move on: record precisely what's left in place so it reaches the report's Cleanup status section and a human can finish it.
-7. Finalize the report (Step 6) — the issue write-ups, the prioritized index, reconciled result counts, the DOCX, and the read-back verification before reporting success.
+Use read-only checks to establish the capabilities actually available in this session.
+Do not install tools, change settings, or start functional tests as part of preflight.
+Record availability, alternatives, and affected test IDs in the report:
 
-## Before an action that could reach outside the local copy
+| Capability | Determine | Consequence when missing |
+| :-- | :-- | :-- |
+| Browser interaction and screenshots | Accessible local site; usable role/session; actual interaction and capture support | BLOCKED for checks needing unavailable interaction; missing capture alone is an evidence limitation if the documented result can still be directly verified |
+| Project / WordPress metadata | Readable source; WP-CLI or permitted database/admin alternative | Use an available equivalent; mark unverified inventory unknown and block only checks requiring unavailable access |
+| Logs and network evidence | Readable relevant sources and request visibility | Record the missing source; block checks whose required evidence cannot otherwise be established |
+| Selection / continuation | Python helpers and current verified non-secret context | Manual ordinary testing remains possible; disclose unavailable automatic selection or safe continuation |
+| Visual differences | Pillow and comparable recorded screenshot contexts | Keep raw evidence; state optional visual review unavailable, never infer a regression from missing comparison |
+| DOCX authoring | Existing authoring/export capability and a way to inspect its output | Continue testing and Markdown; announce capability unavailable, not export failed |
 
-A local URL is not proof of isolation. Before submitting a form, triggering a notification, placing a test order, or anything else that could call out to a real external service, check what the project's Section B (environment profile), Section C (feature inventory), and Section E (preconditions) say about that integration, and whether it's been confirmed sandboxed (test API keys, a sandboxed payment gateway, a mail-catcher instead of real SMTP, a disabled webhook). The card should already name the literal destination (an email address, a named external service) — if it doesn't, or if the destination it names is a real address/service rather than a confirmed sandbox, don't submit and don't guess it's safe. If isolation or the destination isn't established, treat the check as **BLOCKED** (reason: "external-service isolation not confirmed" or "submission destination is a real address/service, not sandboxed") rather than guessing it's safe. Never send a real message, place a real payment, delete shared remote media, or trigger a production sync from a local clone.
+An installed tool is not proof of access or a working integration. Distinguish missing
+tools from missing credentials, an unreachable site, and an unconfirmed expected result.
+Never claim unavailable capabilities were used. If no meaningful checks can run,
+produce an honest blocked report after the storage gate, rather than a fabricated pass.
 
-If the user ever asks to run checks against the live/production site with admin access (not just read-only reference viewing), treat that as a higher-risk, hard-to-reverse action on a shared system: confirm the specific scope and get explicit confirmation before proceeding, the same way you would before any other action on shared production infrastructure.
+## Scope and execution order
 
-## When something is unavailable
+Use `select_tests.py` and `run-state.md` to compute the selected set/order from the
+saved plan when available; otherwise disclose the manual application of the shared
+selection algorithm. In brief: full selects all ACTIVE IDs; smoke selects the smoke
+subset and its prerequisite closure; targeted selects update-tag matches and their
+documented downstream effects, their prerequisite closure, and smoke with its
+prerequisites. Explicit user exclusions win and must be visible as coverage limits.
+Do not expand downstream from smoke alone and accidentally turn targeted into full.
+REMOVED rows remain in the full matrix, unselected NOT RUN with their date/reason.
 
-Mark the specific test ID **BLOCKED** and state exactly what was missing (a credential, a tool, a precondition, network access to an integration) — then continue with every other check that doesn't share that same blocker. One missing piece should never stop an entire run.
+For runtime/environment updates, also apply the shared execution-layer safeguard:
+missing php/env tags must not silently exclude server-side or infrastructure checks.
+Read a selected card's Fixture setup and State after cleanup before using a dependency.
+Verify the required state still exists after prior cleanup; use only a documented,
+authorized setup to recreate it. If the plan cannot establish the fixture, report the
+specific plan gap and BLOCKED check rather than improvising a transaction or changing
+the canonical plan.
 
-## Collecting evidence
+Use `Yes/full`, `Yes/smoke`, `Yes/smoke-dependency`, `Yes/targeted-tagged`, or
+`Yes/targeted-dependency` as appropriate; explain prerequisite selection in the reason
+field (including smoke prerequisites). Record `No` plus the specific reason for every
+unselected ID. Do not use NOT APPLICABLE to represent a scope exclusion.
 
-Use whatever of these are actually available in this session; don't claim a form of evidence you didn't actually produce:
+1. Establish environment/update context and which plan preconditions are met.
+2. Complete capability preflight, storage gate, and the saved report initialization.
+3. Follow the computed dependency order, prioritizing selected smoke and its
+   prerequisites. An explicit limited retest never adds unselected smoke. A missing dependency reference is a plan gap; a cycle
+   must not cause repeated traversal or improvised setup. Block only affected checks
+   when their actual prerequisites cannot be arranged.
+4. Record each assessment/attempt and update the saved result row and cleanup state as
+   it happens. In before mode update `checkpoint.json` too.
+5. Restore disposable content and temporary state under each card's cleanup rules.
+6. Finalize technical findings, the human DOCX, and saved-artifact verification.
 
-- Screenshots (when browser automation is available) for visual/interactive checks.
-- Actual observed UI behavior (what happened on click/submit, not what the code implies should happen).
-- Network requests/responses (status codes, payloads) for AJAX/REST checks.
-- Relevant PHP/WordPress/application log excerpts — written or changed during *this* run.
-- Resulting content or job state (e.g. the post that was actually created, the cron event's last-run timestamp) rather than just "the setting looks right."
-- Measurements, only where Section B/D establishes a baseline to compare against.
+## External-service isolation and production
 
-Save non-trivial evidence (screenshots, log excerpts) into this run's `report-<date>[-N]/screenshots/` and `report-<date>[-N]/log-excerpt.txt` — the output base directory, directory layout, and the public-exposure gate you must pass before creating it are all in `references/storage-preflight.md` (gate) and `references/reporting-format.md` (layout), both handled at Step 3, before execution starts. Reference the file paths from the report rather than pasting large blobs inline or publishing them anywhere external — this is client/production-adjacent data and should stay local to the project.
+Before a form submission, notification, order, upload/delete, job, or other action
+that could reach outside the local copy, check plan Sections B/C/E and confirm the
+actual destination and isolation now. Suitable proof includes a mail catcher, test
+payment gateway, sandbox API keys, or a disabled outbound webhook. Stored config or
+a local URL alone does not prove the action is isolated.
 
-### Attributing log errors
+If the destination is unknown, is a real address/service, or isolation is unverified,
+mark the check BLOCKED with that specific reason. Never send real messages, execute
+real payments, delete shared remote media, or trigger production synchronization
+through a local clone. Do not alter an integration merely to make the test possible
+unless the plan documents the temporary test step and the user's scope authorizes it.
 
-Only attribute a log entry to this run if its timestamp falls inside the run, or you can otherwise tie it to a request you just made. Don't assume an error sitting in a log file was caused by the update just because you happened to be looking at the log today — note older entries separately if they're relevant context, but don't fold them into this run's findings.
+Live remains a read-only reference. If the user requests test actions on production,
+establish the specific actions, affected data, and cleanup scope and obtain any still
+missing explicit authorization before those actions. Reuse authorization already given
+for that scope; do not ask again simply because the mode changed.
 
-### Retries
+## Observations, attempts, and status
 
-If a check fails once and passes on retry, keep both results — note the failure as an observed intermittent result, don't silently replace it with the passing retry. An intermittent failure is itself a finding.
+PASS requires actual execution and direct observation of the documented result.
+Source inspection or a plausible configuration cannot prove a click, layout, upload,
+scheduled event, or cache behavior passed. Missing browser interaction blocks the
+checks that require it; source reading is not a substitute.
 
-## Time-dependent or asynchronous checks
+Record all valid attempts in order with time, status, concrete observation, and
+evidence. Any valid FAIL makes the final test status FAIL, even if a retry passes;
+retain both and classify the changing outcome as Intermittent. Otherwise apply the
+status rules in `shared-conventions.md`. Do not quietly discard a failed attempt as
+invalid; describe an actually established setup error if an attempt cannot test the
+documented requirement, and keep its observation for traceability.
 
-When a card's expected result only resolves after a delay (a scheduled transition, a queued job), follow its defined observation deadline and prerequisites exactly — don't invent your own judgment call in the moment.
+An unclear documented expected result is a plan gap, not permission to define success
+from what happened. Record the question and block the affected acceptance judgment.
+Confirm genuine environment non-applicability before using NOT APPLICABLE; uncertain
+access, isolation, or prerequisites are BLOCKED. One blocker does not stop independent
+checks.
 
-- **BLOCKED** applies only when a specific, named prerequisite could not be confirmed or arranged (e.g. a required setting couldn't be checked, or there was no way to generate the triggering event within the run). "The environment might just be slow" is not a prerequisite — name the actual missing thing.
-- **FAIL** applies when the prerequisites were confirmed met and the defined deadline passed without the expected transition. Do not soften this into BLOCKED just because the cause isn't obvious.
-- If the run's own time budget ran out before the deadline was reached, report that specific check as **NOT RUN**, not a guessed BLOCKED or FAIL.
+For delayed/asynchronous results, follow the card's prerequisites and observation
+deadline. Confirmed prerequisites plus an elapsed deadline without the transition is
+FAIL; a named prerequisite that cannot be arranged is BLOCKED. If the run ends before
+the deadline, use NOT RUN with the time-budget reason and preserve the partial
+observation in Markdown. In a checkpoint, leave its terminal attempts empty; record
+the unfinished observation in the test reason/limitations. Do not invent a terminal
+outcome from an incomplete observation.
 
-A stored field's value is also not proof an action tied to it is active (see `common-pitfalls.md` #10 in the creation skill) — when evidence depends on which action actually ran, confirm the real active-actions list or documented default, not just that a plausible-looking field value exists in storage.
+## Evidence collection
 
-## Cache invalidation checks
+Use available evidence appropriate to the behavior: actual screenshots/UI state,
+requests and responses, relevant attributed log excerpts, resulting content/job state,
+or measurements with an established baseline. For each observed issue, capture its
+visible consequence when possible. If no meaningful screenshot is available, record
+the precise reason and use the real available evidence; never create a substitute image
+or show a healthy screen as proof of a failure.
 
-Follow the card's steps in the order written: observe a disposable, dated content change *without* manually purging the cache first. Purging before observing hides a failed automatic-invalidation behavior — if you purge first and then see fresh content, you've learned nothing about whether invalidation actually works on its own. Purge only afterward, as cleanup, if the environment needs it reset.
+Save evidence only inside the storage-gated report bundle. Use descriptive names such
+as `HOME-001-desktop.png` or `ISSUE-003-checkout-error.png`. In after mode, copied matched
+before images belong in `screenshots/before/` and current images in `screenshots/after/`;
+gate those actual destinations too. Keep the source checkpoint and report immutable.
 
-## What counts as PASS
+Remove or avoid secrets and unnecessary personal data in every saved artifact, including
+screenshots, URLs/query strings, network payloads, and checkpoint metadata. Evidence
+must remain truthful after redaction; explain material omissions. Do not publish the
+bundle externally.
 
-Only actual execution plus direct observation of the documented expected result. Static code inspection, however confident it makes you feel, cannot establish that a browser interaction, a visual layout, an upload workflow, or a scheduled job actually passed — that requires actually doing it and watching what happens. If browser automation isn't available in this session, say explicitly that visual/interactive checks in scope could not be verified this way — don't claim a PASS for them based on source inspection, and don't quietly skip them without reporting the gap.
+In every mode, record the current run's start time/timezone and each readable log's
+starting offset or equivalent boundary before the checks that can generate entries.
+Account for rotation/truncation and retain request correlation where timestamps are
+ambiguous. Without a reliable current-run boundary, report attribution as unverified.
+Attribute a log error to this run only when its timestamp or request identifies this
+run. Record source and timestamp range, and save relevant excerpts rather than a whole
+raw log. Older errors may be separate context, not newly attributed failures. If no
+relevant log evidence exists, state that; do not invent log contents.
 
-## Regression vs. new issue vs. known issue
+For cache invalidation, observe the dated disposable change before any manual purge.
+Purging first hides a failed automatic-invalidation behavior. Purge afterward only if
+the documented cleanup requires it and the local scope permits it. Likewise, confirm
+which configured action actually ran rather than assuming stored fields prove execution.
 
-Use the issue classification definitions in `references/shared-conventions.md` exactly. In short: you need actual before/after evidence to call something a "confirmed regression" — absent that, it's a "new issue of uncertain origin," which is still worth reporting, just not over-claimed.
+## Report integrity and cleanup
 
-## Report integrity
+Use issue classifications from `shared-conventions.md`. A confirmed regression needs
+comparable prior passing evidence for the same requirement; without it report a new
+issue of uncertain origin, a known issue, or an intermittent finding as established.
+Version changes alone do not prove causation.
 
-- Account for every test ID in the project's plan, not only this run's selected scope — including ones you didn't get to, and including ones deliberately never selected (Selected: No, Status: NOT RUN, the specific scope reason — never NOT APPLICABLE for those). There's no silent default; an ID with no explicit status is a bug in the report, not an implicit PASS or an implicit exclusion.
-- Never change a test case's documented expected result to make an observed failure look like a pass. If you think the expected result in `testing-after-update.md` is wrong, say so in the report as a flagged discrepancy — don't edit the canonical document during execution.
-- A partial run (smoke-only, or blocked on several IDs) is reported as a partial run. Never phrase a partial run's conclusion as if it were a full pass.
-- Incomplete cleanup is reported, never silently left out. If anything created or changed during testing is still in place when you finish, the Cleanup status section must say exactly which item, and what a human needs to do to finish it.
+Account for every plan ID, including unselected, removed, blocked, and unreached IDs.
+Keep findings, blocked checks, and unresolved preconditions distinct. Never change the
+canonical plan or apply a proposed fix during execution. Record precisely any created
+item, changed setting, or other temporary state that remains, with the manual cleanup
+needed. A partial or blocked run must never read like a fully verified site.

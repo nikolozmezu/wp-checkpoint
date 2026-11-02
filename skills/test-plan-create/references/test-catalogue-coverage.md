@@ -2,7 +2,7 @@
 
 Read this in full before drafting Section F of `testing-after-update.md`. It is the specific, non-negotiable coverage list that SKILL.md's instructions point to — treat every bullet as a question to answer for this project ("does this exist here? if yes, is it covered by a test case?"), not as generic boilerplate to copy in verbatim. Where an item doesn't apply, say so briefly in the Applicability/Gaps subsection — don't silently delete it, and don't replace it with a vague stand-in like "check that everything works" or "test responsiveness."
 
-For every item that does apply, turn it into one or more test cases using the test-case card format in `assets/testing-after-update-template.md` — unique ID, exact starting point, numbered actions, specific observable expected result with its expected-result basis, evidence, cleanup, limitations. Avoid vague steps. Where the correct expected result genuinely can't be established from available access, say so via the "Requires clarification or runtime confirmation" basis rather than inventing one.
+For every applicable item, use the template's schema-3 card: permanent ID, lifecycle, execution layers, implementation evidence, prerequisite/impact IDs, concrete fixture setup and starting point, numbered steps, observable expected result with its basis, evidence, cleanup and resulting state. Every expected branch needs an observing step. Use actual source/configuration rather than generic framework assumptions; use "Requires clarification or runtime confirmation" for unresolved criteria. Retain REMOVED history and keep all plan statuses NOT RUN. Apply `references/plan-quality-review.md` before declaring the document reviewed.
 
 ## Frontend structure and content
 
@@ -41,6 +41,8 @@ For every item that does apply, turn it into one or more test cases using the te
 
 Derive expected visuals from available evidence (the existing live site, design files if referenced in project docs, or the local site's own current rendering as a baseline). Do not invent an approved design. If no reliable baseline exists, say plainly which observations are possible now and which before/after comparisons will remain unconfirmed until a future run has both states to compare.
 
+For visual cards, specify the page, role, viewport, and meaningful UI state to capture so optional before/after runs can reproduce the view. Identify dynamic regions (dates, rotating content, personalized data) that affect comparison. A screenshot of a different route, state, or viewport is not automatically a compatible before image; document the limitation rather than presenting it as proof of a regression.
+
 ## Admin and editorial workflows
 
 - Login and relevant role/permission differences.
@@ -52,14 +54,16 @@ Derive expected visuals from available evidence (the existing live site, design 
 
 ## Technical behavior
 
-- AJAX actions and REST endpoints used by actual site features (not WordPress's full default surface).
+- AJAX actions and REST endpoints used by actual site features (not WordPress's full default surface); derive request and redirect/reload expectations from the active caller/configuration and handler.
 - Scheduled posts, cron jobs, queues, imports, and integrations.
 - Relevant page, object, transient, and CDN cache layers. A caching plugin reporting itself "enabled" is not the same as this environment being able to reproduce a production-only cache layer (e.g. a server-level module) — if the environment can't, record that as a limitation rather than asserting coverage or generating a false failure.
 - Content/cache invalidation and freshness after changes. Write the steps so invalidation is checked by observing a disposable, dated content change *without* manually purging first — manually purging before checking would hide a failed automatic-invalidation behavior. Purge only as a cleanup step afterward if needed.
 - Cached versus uncached and anonymous versus logged-in behavior where relevant.
-- PHP/WordPress errors, warnings, and deprecations.
+- PHP/WordPress errors, warnings, and deprecations, attributed to the tested environment and run window rather than copied historical logs.
 - Browser-console and network errors.
 - Meaningful performance comparisons where a baseline exists.
+
+For every coverage area, infer all execution layers, including PHP behind rendered pages/editorial actions, browser interaction, infrastructure and external integrations. Reconcile those layers with update selection using the shared contract. Do not limit runtime coverage to obvious technical cards or assume a tag matrix proves the relevant paths were included. Unknown layers stay explicit and require conservative scope.
 
 ## Four things that look like evidence but aren't
 

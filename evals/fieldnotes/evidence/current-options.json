@@ -1,0 +1,13 @@
+{
+  "captured_at": "2026-11-02T10:00:00+04:00",
+  "environment": "local fieldnotes fixture",
+  "source": "read-only WordPress options export",
+  "active_plugins": ["fieldnotes-search/fieldnotes-search.php"],
+  "template": "fieldnotes",
+  "stylesheet": "fieldnotes",
+  "siteurl": "http://fieldnotes.invalid",
+  "home": "http://fieldnotes.invalid",
+  "permalink_structure": "/%postname%/",
+  "timezone_string": "UTC",
+  "locale": "en_US"
+}
